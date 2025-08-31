@@ -11,13 +11,12 @@
       <span class="vtp-input__icon">🕘</span>
     </button>
 
-    <!-- Columns only  -->
-    <div v-if="open" class="vtp-cols ">
+    
+    <div v-if="open" class="vtp-cols">
       <TimeColumn
         v-model:activeIndex="hourIdx"
         :items="hoursList"
         label="Hours"
-        @select="onHourSelect"
       />
       <TimeColumn
         v-model:activeIndex="minuteIdx"
@@ -37,146 +36,148 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
-import TimeColumn from './TimeColumn.vue'
+import { computed, onMounted, onBeforeUnmount, ref } from "vue";
+import TimeColumn from "./TimeColumn.vue";
 
-type Item = { key: number | string; value: number; text: string; disabled?: boolean }
+type Item = {
+  key: number | string;
+  value: number;
+  text: string;
+  disabled?: boolean;
+};
 
-const props = withDefaults(defineProps<{
-  modelValue?: string | null
-  step?: number          // minute step
-  showSeconds?: boolean, 
-}>(), {
-  modelValue: null,
-  step: 1,
-  showSeconds: true,
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string | null;
+    hourStep?: number;
+    minuteStep?: number;
+    secondStep?: number;
+    showSeconds?: boolean;
+  }>(),
+  {
+    modelValue: null,
+    hourStep: 1,
+    minuteStep: 4,
+    secondStep: 1,
+    showSeconds: true,
+  }
+);
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', v: string | null): void
-  (e: 'open'): void
-  (e: 'close'): void
-}>()
+  (e: "update:modelValue", v: string | null): void;
+  (e: "open"): void;
+  (e: "close"): void;
+}>();
 
-/** open/close */
-const open = ref(false)
-const root = ref<HTMLElement | null>(null)
-function toggle() { open.value ? close() : openMenu() }
-function openMenu() { open.value = true; emit('open') }
-function close() { open.value = false; emit('close') }
-
-/** parse initial value -> indices */
-const [initH, initM, initS] = (() => {
-  if (!props.modelValue) return [0, 0, 0]
-  const parts = props.modelValue.split(':').map((n) => Number(n) || 0)
-  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0]
-})()
-
-/** active indices (0..23, 0..59, 0..59) */
-const hourIdx = ref(initH)
-const minuteIdx = ref(Math.floor(initM / props.step) || 0) // snap to step
-const secondIdx = ref(initS)
-
-/** lists */
-const hoursList = computed<Item[]>(() =>
-  Array.from({ length: 24 }, (_, h) => ({ key: h, value: h, text: h.toString().padStart(2, '0') }))
-)
-
-const minutesList = computed<Item[]>(() => {
-  const step = Math.max(1, props.step)
-  const arr: Item[] = []
-  for (let m = 0; m < 60; m += step) arr.push({ key: m, value: m, text: m.toString().padStart(2, '0') })
-  return arr
-})
-
-const secondsList = computed<Item[]>(() =>
-  Array.from({ length: 60 }, (_, s) => ({ key: s, value: s, text: s.toString().padStart(2, '0') }))
-)
-
-/** computed selected values */
-const hourVal   = computed(() => hoursList.value[hourIdx.value]?.value ?? 0)
-const minuteVal = computed(() => minutesList.value[minuteIdx.value]?.value ?? 0)
-const secondVal = computed(() => secondsList.value[secondIdx.value]?.value ?? 0)
-
-/** input display */
-const display = computed(() => {
-  const hh = String(hourVal.value).padStart(2, '0')
-  const mm = String(minuteVal.value).padStart(2, '0')
-  if (!props.showSeconds) return `${hh}:${mm}`
-  const ss = String(secondVal.value).padStart(2, '0')
-  return `${hh}:${mm}:${ss}`
-})
-
-/** selection handlers: advance focus to next column */
-function onHourSelect(_: number) {
-  // optionally move keyboard focus to minutes (visual already updates)
+// open/close 
+const open = ref(false);
+const root = ref<HTMLElement>();
+function toggle() {
+  open.value ? close() : openMenu();
 }
+function openMenu() {
+  open.value = true;
+  emit("open");
+}
+function close() {
+  open.value = false;
+  emit("close");
+}
+
+// Initial time  values 
+const [initH, initM, initS] = (() => {
+  if (!props.modelValue) return [0, 0, 0]; // default to 0:0:0
+  const parts = props.modelValue.split(":").map((n) => Number(n) || 0); // split and convert to numbers
+  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+})();
+
+// Convert to indices based on step 
+const hourIdx = ref(Math.floor(initH / props.hourStep) || 0);
+const minuteIdx = ref(Math.floor(initM / props.minuteStep) || 0);
+const secondIdx = ref(Math.floor(initS / props.secondStep) || 0);
+
+// Create the lists for hours, minutes, seconds based on the given step 
+function makeList(max: number, step: number): Item[] {
+  const arr: Item[] = [];
+  for (let i = 0; i < max; i += Math.max(1, step)) {
+    arr.push({ key: i, value: i, text: i.toString().padStart(2, "0") });
+  }
+  return arr;
+}
+
+const hoursList = computed(() => makeList(24, props.hourStep));
+const minutesList = computed(() => makeList(60, props.minuteStep));
+const secondsList = computed(() => makeList(60, props.secondStep));
+
+//  Selected values 
+const hourVal = computed(() => hoursList.value[hourIdx.value]?.value ?? 0);
+const minuteVal = computed(() => minutesList.value[minuteIdx.value]?.value ?? 0);
+const secondVal = computed(() => secondsList.value[secondIdx.value]?.value ?? 0);
+
+// Input display 
+const display = computed(() => {
+  const hh = String(hourVal.value).padStart(2, "0");
+  const mm = String(minuteVal.value).padStart(2, "0");
+  if (!props.showSeconds) return `${hh}:${mm}`;
+  const ss = String(secondVal.value).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+});
+
+
+// If seconds are displayed do nothing else close and set value
 function onMinuteSelect(_: number) {
-  if (!props.showSeconds) confirm()   // close & set value when minutes chosen
+  if (!props.showSeconds) confirm(); 
 }
 function onSecondSelect(_: number) {
-  confirm()                           // last step → close
+  confirm(); 
 }
 
-/** confirm writes back to v-model */
 function confirm() {
-  emit('update:modelValue', display.value)
-  close()
+  emit("update:modelValue", display.value);
+  close();
 }
 
-/** click-outside to close */
+// Click outside to close 
 function onDocMousedown(e: MouseEvent) {
-  const t = e.target as Node
-  if (!root.value?.contains(t)) close()
+  const t = e.target as Node;
+  if (!root.value?.contains(t)) {
+    confirm();
+  }
 }
-onMounted(() => document.addEventListener('mousedown', onDocMousedown))
-onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMousedown))
+
+onMounted(() => document.addEventListener("mousedown", onDocMousedown));
+onBeforeUnmount(() =>
+  document.removeEventListener("mousedown", onDocMousedown)
+);
+
+
 </script>
 
-<style scoped>
-.vtp { position: relative; display: inline-block; }
+<style src="../style.css">
 
-/* input look */
-.vtp-input {
-  display: inline-flex; align-items: center; gap: .5rem;
-  min-width: 140px;
-  padding: .5rem .75rem; border: 1px solid #cbd5e1;
-  border-radius: .5rem; background: #fff; cursor: pointer;
-}
-.vtp-input:focus-visible { outline: 2px solid #3b82f6; }
-
-
-.vtp-cols {
-  display: flex;
-  gap: 3.7rem;        /* space between columns */
-}
-
-.vtp-cols--overlay {
-  position: absolute;
-  z-index: 30;
-  top: 100%;
-  left: 0;
-  margin-top: .25rem;
-
-  display: grid;
-  grid-auto-flow: column;
-  gap: .5rem;
-
-  background: transparent;
-  padding: 0;
-  border: 0;
-  box-shadow: none;
-}
-
-
-.vtp-input__icon {
-  margin-left: auto;      /* push icon to the far right */
-}
-
-/* footer */
-.vtp-actions { display:flex; justify-content:flex-start; padding-top:.25rem; }
-.vtp-ok {
-  appearance: none; border: 0; background: #2563eb; color:#fff;
-  padding: .35rem .6rem; border-radius: .5rem; cursor: pointer;
-}
 </style>
+
+<!-- Time Format
+format
+Control display of hours, minutes, seconds, AM/PM
+Minute Interval
+:minute-interval
+Show minute values in steps (e.g., 0, 5, 10…)
+Second Interval
+:second-interval
+Show seconds in defined increments
+Custom Column Labels
+hour-label, minute-label…
+Override default text above each column
+Custom AM/PM Text
+am-text, pm-text
+Substitute AM/PM labels
+Custom Icons & Buttons
+Slots: icon, clearButton, dropdownButton
+Insert your own UI elements
+Hide Clear Button
+hide-clear-button
+Omit the “clear” control from the UI
+Disable Time Ranges
+hour-range, minute-range, second-range
+Limit available selectable values -->
