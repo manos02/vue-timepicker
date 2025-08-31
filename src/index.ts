@@ -1,4 +1,4 @@
-import TimePicker from "./components/TimePicker.vue";
+import TimePicker from "./TimePicker/TimePicker.vue";
 
 
 export { TimePicker };
