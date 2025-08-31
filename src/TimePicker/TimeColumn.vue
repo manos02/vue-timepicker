@@ -34,6 +34,7 @@ const props = defineProps<{
   activeIndex: number
 }>()
 
+
 const emit = defineEmits<{
   (e: 'update:activeIndex', index: number): void
   (e: 'select', v: any): void
