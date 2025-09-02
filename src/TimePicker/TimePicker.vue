@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import TimeColumn from "./TimeColumn.vue";
+import { Item, timePickerProps, type TimePickerEmits } from "./types";
 import {
   is12h,
   hasSeconds,
@@ -66,39 +67,14 @@ import {
   TIME_SHAPE,
 } from "../helpers";
 
-type Item = {
-  key: number | string;
-  value: number | string;
-  text: string;
-  disabled?: boolean;
-};
 
 const lastErrorCode = ref<string | null>(null);
 /* ================================
  * Props & emits
  * ================================ */
-const props = defineProps({
-  modelValue: { type: String, default: null },
-  hourStep: { type: Number, default: 1 },
-  minuteStep: { type: Number, default: 1 },
-  secondStep: { type: Number, default: 1 },
-  format: {
-    type: String,
-    default: "HH:mm",
-    validator: (fmt: string) => {
-      const ok = FORMAT_SHAPE.test(fmt);
-      if (!ok && import.meta.env.DEV) console.error(`[MyLib] invalid format "${fmt}"`);
-      return ok;
-    },
-  },
-});
+const props = defineProps(timePickerProps);
 
-const emit = defineEmits<{
-  (e: "update:modelValue", v: string | null): void;
-  (e: "open"): void;
-  (e: "close"): void;
-  (e: "error", payload: { code: "BAD_TIME" | "OUT_OF_RANGE"; message: string }): void;
-}>();
+const emit = defineEmits<TimePickerEmits>();
 
 /* ================================
  * Open/close & outside click
@@ -211,10 +187,18 @@ const secondVal = computed(() =>
 /* ================================
  * Display string
  * ================================ */
-const display = computed(() =>
-  formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value)
-);
+ const display = computed(() => {
+  if (!props.modelValue) return "—"; // placeholder
 
+  if (typeof props.modelValue === "string") { // single value
+    return formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value);
+  }
+  // tuple of 2 strings
+  let [start, end] = props.modelValue;
+  start = formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value);
+  end = formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value); // TODO: change this
+  return `${start} → ${end}`;
+});
 /* ================================
  * Handlers
  * ================================ */
@@ -242,7 +226,7 @@ function confirm() {
 let lastBadTime: string | null = null;
   
   const isModelValueValid = computed(
-    () => props.modelValue == null || TIME_SHAPE.test(props.modelValue)
+    () => props.modelValue == null || TIME_SHAPE.test(props.modelValue[0])
   );
   
   watch(
@@ -254,10 +238,10 @@ let lastBadTime: string | null = null;
         lastBadTime = null;
         return;
       }
-  
+
       // avoid duplicate emits for the same bad input
       if (val === lastBadTime) return;
-      lastBadTime = val;
+        
   
       lastErrorCode.value = "Invalid time";
       emit("error", {
