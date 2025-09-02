@@ -3,6 +3,7 @@
     <!-- Input / trigger -->
     <button
       class="vtp-input"
+      :class="{ 'vtp-input--error': lastErrorCode }"
       type="button"
       :aria-expanded="open"
       @click="toggle"
@@ -10,6 +11,14 @@
       <span>{{ display }}</span>
       <span class="vtp-input__icon">🕘</span>
     </button>
+
+    <p
+      v-if="lastErrorCode"
+      class="vtp-error-msg"
+      role="alert"
+    >
+      {{ lastErrorCode }}
+    </p>
 
     <!-- Columns -->
     <div v-if="open" class="vtp-cols">
@@ -47,12 +56,14 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import TimeColumn from "./TimeColumn.vue";
 import {
   is12h,
-  parseFromModel,
   hasSeconds,
   formatTime,
   to24,
   isPm,
   hasK,
+  parseFromModel,
+  FORMAT_SHAPE,
+  TIME_SHAPE,
 } from "../helpers";
 
 type Item = {
@@ -62,30 +73,31 @@ type Item = {
   disabled?: boolean;
 };
 
+const lastErrorCode = ref<string | null>(null);
 /* ================================
  * Props & emits
  * ================================ */
-const props = withDefaults(
-  defineProps<{
-    modelValue?: string | null;
-    hourStep?: number;
-    minuteStep?: number;
-    secondStep?: number;
-    format?: string;
-  }>(),
-  {
-    modelValue: null,
-    hourStep: 1,
-    minuteStep: 1,
-    secondStep: 1,
-    format: "HH:mm",
-  }
-);
+const props = defineProps({
+  modelValue: { type: String, default: null },
+  hourStep: { type: Number, default: 1 },
+  minuteStep: { type: Number, default: 1 },
+  secondStep: { type: Number, default: 1 },
+  format: {
+    type: String,
+    default: "HH:mm",
+    validator: (fmt: string) => {
+      const ok = FORMAT_SHAPE.test(fmt);
+      if (!ok && import.meta.env.DEV) console.error(`[MyLib] invalid format "${fmt}"`);
+      return ok;
+    },
+  },
+});
 
 const emit = defineEmits<{
   (e: "update:modelValue", v: string | null): void;
   (e: "open"): void;
   (e: "close"): void;
+  (e: "error", payload: { code: "BAD_TIME" | "OUT_OF_RANGE"; message: string }): void;
 }>();
 
 /* ================================
@@ -114,10 +126,13 @@ onBeforeUnmount(() =>
   document.removeEventListener("mousedown", onDocMousedown)
 );
 
-const init = computed(() => parseFromModel(props.modelValue, props.format));
-const show12UI = is12h(props.format);
-const showSecondsUI = hasSeconds(props.format);
-const isKFormat = hasK(props.format);
+const init = computed(() => {
+  return parseFromModel(props.modelValue, props.format);
+});
+
+const show12UI = computed(() => is12h(props.format));
+const showSecondsUI = computed(() => hasSeconds(props.format));
+const isKFormat = computed(() => hasK(props.format));
 
 // AM/PM: 0 = AM, 1 = PM
 const ampmIdx = ref(isPm(props.format) ? 1 : 0);
@@ -125,8 +140,6 @@ const ampmIdx = ref(isPm(props.format) ? 1 : 0);
 const hourIdx = ref(Math.floor(init.value.h / props.hourStep) || 0);
 const minuteIdx = ref(Math.floor(init.value.m / props.minuteStep) || 0);
 const secondIdx = ref(Math.floor(init.value.s / props.secondStep) || 0);
-
-
 
 function makeList(max: number, step: number): Item[] {
   const arr: Item[] = [];
@@ -157,10 +170,9 @@ function makeKHourList(step: number): Item[] {
   return arr;
 }
 
-
 const hoursList = computed<Item[]>(() => {
-  if (!show12UI) {
-    if (isKFormat) return makeKHourList(props.hourStep);
+  if (!show12UI.value) {
+    if (isKFormat.value) return makeKHourList(props.hourStep);
     return makeList(24, props.hourStep);
   }
   const isPmNow = ampmIdx.value === 1;
@@ -181,10 +193,11 @@ const ampmVal = computed(() => (ampmIdx.value === 1 ? "PM" : "AM"));
 
 const hourVal = computed(() => {
   const hour = Number(hoursList.value[hourIdx.value]?.value ?? 0);
-  if (show12UI) { // convert am/pm
+  if (show12UI.value) {
+    // convert am/pm
     return ampmVal.value === "PM" ? to24(hour, true) : to24(hour, false);
   }
-  if (isKFormat && hour === 24) return 0; // convert k format
+  if (isKFormat.value && hour === 24) return 0; // convert k format
   return hour;
 });
 
@@ -207,20 +220,53 @@ const display = computed(() =>
  * ================================ */
 function onMinuteSelect(_: number) {
   // If there are no seconds and no AM/PM column, confirm immediately
-  if (!showSecondsUI && !show12UI) confirm();
+  if (!showSecondsUI.value && !show12UI.value) confirm();
 }
 function onSecondSelect(_: number) {
   // If there’s no AM/PM column, we can confirm now
-  if (!show12UI) confirm();
+  if (!show12UI.value) confirm();
 }
 function onAmpmSelect(_: string) {
   confirm();
 }
 
 function confirm() {
-  emit("update:modelValue", display.value);
+  const time = `${String(hourVal.value).padStart(2, "0")}:${String(
+    minuteVal.value
+  ).padStart(2, "0")}:${String(secondVal.value).padStart(2, "0")}`;
+  emit("update:modelValue", time);
   close();
 }
+
+
+let lastBadTime: string | null = null;
+  
+  const isModelValueValid = computed(
+    () => props.modelValue == null || TIME_SHAPE.test(props.modelValue)
+  );
+  
+  watch(
+    () => props.modelValue,
+    (val) => {
+      // clear UI error if fixed
+      if (val == null || isModelValueValid.value) {
+        lastErrorCode.value = null;
+        lastBadTime = null;
+        return;
+      }
+  
+      // avoid duplicate emits for the same bad input
+      if (val === lastBadTime) return;
+      lastBadTime = val;
+  
+      lastErrorCode.value = "Invalid time";
+      emit("error", {
+        code: "BAD_TIME",
+        message: `Invalid time "${val}". Expected strict "HH:MM:SS".`,
+      });
+    },
+    { immediate: true }
+  );
 </script>
 
 <style src="../style.css"></style>
