@@ -23,7 +23,7 @@ export const TIME_SHAPE = /^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/;
 
 export const timePickerProps = {
   modelValue: {
-    type: [String, Array] as PropType<string | [string, string] | null>,
+    type: String as PropType<string | [string, string] | null>,
     default: null,
     validator: (v: any) => {
       let ok;

@@ -1,12 +1,12 @@
 <template>
-  <div class="vtp" ref="root">
+  <div class="vtp">
     <!-- Input / trigger -->
     <button
       class="vtp-input"
       :class="{ 'vtp-input--error': lastErrorCode }"
       type="button"
       :aria-expanded="open"
-      @click="toggle"
+      @click="toggleAll"
     >
       <span>{{ display }}</span>
       <span class="vtp-input__icon">🕘</span>
@@ -40,6 +40,7 @@
         @select="onAmpmSelect"
       /> -->
       <TimeSelection
+        v-model:open="open"
         v-model:initTime="init" 
         :format="props.format"
       />
@@ -70,43 +71,44 @@ const props = defineProps(timePickerProps);
 
 const emit = defineEmits<TimePickerEmits>();
 
+const open = ref(false);
+
+function toggleAll() {
+  open.value = !open.value
+}
+
+
 /* ================================
  * Open/close & outside click
  * ================================ */
-const open = ref(false);
-const root = ref<HTMLElement>();
-function openMenu() {
-  open.value = true;
-  emit("open");
-}
-function close() {
-  open.value = false;
-  emit("close");
-}
-function toggle() {
-  open.value ? close() : openMenu();
-}
+// const open = ref(false);
+// const root = ref<HTMLElement>();
+// function openMenu() {
+//   open.value = true;
+//   emit("open");
+// }
+// function close() {
+//   open.value = false;
+//   emit("close");
+// }
+// function toggle() {
+//   open.value ? close() : openMenu();
+// }
 
-function onDocMousedown(e: MouseEvent) {
-  const t = e.target as Node;
-  if (!root.value?.contains(t)) confirm();
-}
-onMounted(() => document.addEventListener("mousedown", onDocMousedown));
-onBeforeUnmount(() =>
-  document.removeEventListener("mousedown", onDocMousedown)
-);
+// function onDocMousedown(e: MouseEvent) {
+//   const t = e.target as Node;
+//   if (!root.value?.contains(t)) confirm();
+// }
+// onMounted(() => document.addEventListener("mousedown", onDocMousedown));
+// onBeforeUnmount(() =>
+//   document.removeEventListener("mousedown", onDocMousedown)
+// );
 
 
-// const show12UI = computed(() => is12h(props.format));
-// const showSecondsUI = computed(() => hasSeconds(props.format));
-// const isKFormat = computed(() => hasK(props.format));
 
 type Canon = { h: number; m: number; s: number }  // internal canonical time
 
 
-/* open/close omitted for brevity */
-
-// ---- Bridge computed: public <-> internal
 const init = computed<Canon | [Canon, Canon]>({
   get() {
     if (Array.isArray(props.modelValue)) {
@@ -117,7 +119,6 @@ const init = computed<Canon | [Canon, Canon]>({
     }
   },
   set(val) {
-    // push changes from TimeSelection back to the parent API
     const toStr = (c: Canon) => formatTime("HH:mm:ss", c.h, c.m, c.s);
     if (Array.isArray(val)) {
       const [a, b] = val;
@@ -127,8 +128,6 @@ const init = computed<Canon | [Canon, Canon]>({
     }
   }
 });
-
-
 
 
 /* ================================
@@ -143,28 +142,7 @@ const display = computed(() => {
   }
   return fmt(init.value);
 });
-/* ================================
- * Handlers
- * ================================ */
-function onMinuteSelect(_: number) {
-  // If there are no seconds and no AM/PM column, confirm immediately
-  if (!showSecondsUI.value && !show12UI.value) confirm();
-}
-function onSecondSelect(_: number) {
-  // If there’s no AM/PM column, we can confirm now
-  if (!show12UI.value) confirm();
-}
-function onAmpmSelect(_: string) {
-  confirm();
-}
 
-function confirm() {
-  const time = `${String(hourVal.value).padStart(2, "0")}:${String(
-    minuteVal.value
-  ).padStart(2, "0")}:${String(secondVal.value).padStart(2, "0")}`;
-  emit("update:modelValue", time);
-  close();
-}
 
 watch(
   () => props.range,

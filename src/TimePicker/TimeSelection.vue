@@ -1,5 +1,5 @@
 <template>
-  <div class="vtp-cols">
+  <div class="vtp-cols" v-if="openLocal" ref="root">
     <TimeColumn
       v-model:activeIndex="hourIdx"
       :items="hoursList"
@@ -10,6 +10,7 @@
       v-model:activeIndex="minuteIdx"
       :items="minutesList"
       label="Minutes"
+      @select="onMinuteSelect"
     />
 
     <TimeColumn
@@ -17,6 +18,7 @@
       v-model:activeIndex="secondIdx"
       :items="secondsList"
       label="Seconds"
+      @select="onSecondSelect"
     />
 
     <TimeColumn
@@ -24,12 +26,13 @@
       v-model:activeIndex="ampmIdx"
       :items="ampmList"
       label="AM/PM"
+      @select="onAmpmSelect"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import TimeColumn from "./TimeColumn.vue";
 import { Item, TimePickerEmits } from "./types";
 import {
@@ -40,13 +43,16 @@ import {
   parseFromModel,
   to24,
 } from "../helpers";
+import { on } from "events";
 
 const show12UI = computed(() => is12h(props.format));
 const showSecondsUI = computed(() => hasSeconds(props.format));
 const isKFormat = computed(() => hasK(props.format));
 
+
 const props = withDefaults(
   defineProps<{
+    open: boolean;
     initTime: { h: number; m: number; s: number };
 
     format: string;
@@ -65,7 +71,44 @@ const props = withDefaults(
 // v-model updates
 const emit = defineEmits<{
   (e: "update:initTime", v: { h: number; m: number; s: number }): void;
+  (e: "open"): void;
+  (e: "close"): void;
+  (e: "update:open", v: boolean): void;
 }>();
+
+const openLocal = computed({
+  get: () => props.open ?? false,
+  set: (v: boolean) => {
+    const prev = props.open ?? false;
+    if (v === prev) return;
+    emit("update:open", v);
+    v ? emit("open") : emit("close");
+  }
+});
+
+
+/* ================================
+ * Open/close & outside click
+ * ================================ */
+const root = ref<HTMLElement | null>(null);
+
+/** Outside click: close if click is not inside */
+function onDocMousedown(e: MouseEvent) {
+  if (!openLocal.value) return;
+  const t = e.target as Node;
+  if (root.value && !root.value.contains(t)) {
+    openLocal.value = false; // closes via update:open
+  }
+}
+onMounted(() => document.addEventListener("mousedown", onDocMousedown));
+onBeforeUnmount(() => document.removeEventListener("mousedown", onDocMousedown));
+
+/**  ESC to close */
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && openLocal.value) openLocal.value = false;
+}
+onMounted(() => document.addEventListener("keydown", onKeydown));
+onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
 
 const hourIdx = ref(Math.floor(props.initTime.h / props.hourStep) || 0);
 const minuteIdx = ref(Math.floor(props.initTime.m / props.minuteStep) || 0);
@@ -154,6 +197,25 @@ const secondVal = computed(() =>
 //   }
 // }
 
+
+/* ================================
+ * Handlers
+ * ================================ */
+function onMinuteSelect(_: number) {
+  // If there are no seconds and no AM/PM column, confirm immediately
+  if (!showSecondsUI.value && !show12UI.value) confirm();
+}
+function onSecondSelect(_: number) {
+  // If there’s no AM/PM column, we can confirm now
+  if (!show12UI.value) confirm();
+}
+function onAmpmSelect(_: string) {
+  confirm();
+}
+
+function confirm() {
+  openLocal.value = false;
+}
 watch([hourVal, minuteVal, secondVal], ([h, m, s]) => {
   const obj = { h, m, s }
   emit("update:initTime", obj)
