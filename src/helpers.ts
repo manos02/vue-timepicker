@@ -84,8 +84,7 @@ export function formatTime(fmt: string, h: number, m: number, s: number) {
   return fmt.replace(/HH|hh|kk|mm|ss|H|h|k|m|s|A|a|P|p/g, (t) => map[t] ?? t);
 }
 
-export const FORMAT_SHAPE = /^(HH|H|hh|h|kk|k):(mm|m)(?::(ss|s))?(?:\s*(A|a|P|p))?$/;
-export const TIME_SHAPE = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+
 
 
 

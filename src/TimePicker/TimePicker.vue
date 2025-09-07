@@ -12,17 +12,9 @@
       <span class="vtp-input__icon">🕘</span>
     </button>
 
-    <p
-      v-if="lastErrorCode"
-      class="vtp-error-msg"
-      role="alert"
-    >
-      {{ lastErrorCode }}
-    </p>
-
     <!-- Columns -->
-    <div v-if="open" class="vtp-cols">
-      <TimeColumn
+    <!-- <div v-if="open" class="vtp-cols"> -->
+      <!-- <TimeColumn
         v-model:activeIndex="hourIdx"
         :items="hoursList"
         label="Hours"
@@ -46,14 +38,19 @@
         :items="ampmList"
         label="AM/PM"
         @select="onAmpmSelect"
+      /> -->
+      <TimeSelection
+        v-model:initTime="init" 
+        :format="props.format"
       />
     </div>
-  </div>
+  <!-- </div> -->
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import TimeColumn from "./TimeColumn.vue";
+import TimeSelection from "./TimeSelection.vue";
 import { Item, timePickerProps, type TimePickerEmits } from "./types";
 import {
   is12h,
@@ -63,10 +60,7 @@ import {
   isPm,
   hasK,
   parseFromModel,
-  FORMAT_SHAPE,
-  TIME_SHAPE,
 } from "../helpers";
-
 
 const lastErrorCode = ref<string | null>(null);
 /* ================================
@@ -102,102 +96,52 @@ onBeforeUnmount(() =>
   document.removeEventListener("mousedown", onDocMousedown)
 );
 
-const init = computed(() => {
-  return parseFromModel(props.modelValue, props.format);
+
+// const show12UI = computed(() => is12h(props.format));
+// const showSecondsUI = computed(() => hasSeconds(props.format));
+// const isKFormat = computed(() => hasK(props.format));
+
+type Canon = { h: number; m: number; s: number }  // internal canonical time
+
+
+/* open/close omitted for brevity */
+
+// ---- Bridge computed: public <-> internal
+const init = computed<Canon | [Canon, Canon]>({
+  get() {
+    if (Array.isArray(props.modelValue)) {
+      const [a, b] = props.modelValue;
+      return [parseFromModel(a, props.format), parseFromModel(b, props.format)];
+    } else {
+      return parseFromModel(props.modelValue, props.format);
+    }
+  },
+  set(val) {
+    // push changes from TimeSelection back to the parent API
+    const toStr = (c: Canon) => formatTime("HH:mm:ss", c.h, c.m, c.s);
+    if (Array.isArray(val)) {
+      const [a, b] = val;
+      emit("update:modelValue", [toStr(a), toStr(b)]);
+    } else {
+      emit("update:modelValue", toStr(val));
+    }
+  }
 });
 
-const show12UI = computed(() => is12h(props.format));
-const showSecondsUI = computed(() => hasSeconds(props.format));
-const isKFormat = computed(() => hasK(props.format));
 
-// AM/PM: 0 = AM, 1 = PM
-const ampmIdx = ref(isPm(props.format) ? 1 : 0);
 
-const hourIdx = ref(Math.floor(init.value.h / props.hourStep) || 0);
-const minuteIdx = ref(Math.floor(init.value.m / props.minuteStep) || 0);
-const secondIdx = ref(Math.floor(init.value.s / props.secondStep) || 0);
-
-function makeList(max: number, step: number): Item[] {
-  const arr: Item[] = [];
-  for (let i = 0; i < max; i += Math.max(1, step)) {
-    arr.push({ key: i, value: i, text: String(i).padStart(2, "0") });
-  }
-  return arr;
-}
-
-function make12HourList(isPm: boolean, step: number): Item[] {
-  const s = Math.max(1, step);
-  const arr: Item[] = [];
-  for (let i = 0; i < 12; i += s) {
-    const h12 = i === 0 ? 12 : i; // label: 12,1..11
-    const h24 = isPm ? (i === 0 ? 12 : i + 12) : i; // value: 12..23 or 0..11
-    arr.push({ key: h24, value: h24, text: String(h12).padStart(2, "0") });
-  }
-  return arr;
-}
-
-function makeKHourList(step: number): Item[] {
-  const s = Math.max(1, step);
-  const arr: Item[] = [];
-  for (let i = 0; i < 24; i += s) {
-    const kFormat = i === 0 ? 24 : i; // label: 24,1..23
-    arr.push({ key: i, value: i, text: String(kFormat).padStart(2, "0") });
-  }
-  return arr;
-}
-
-const hoursList = computed<Item[]>(() => {
-  if (!show12UI.value) {
-    if (isKFormat.value) return makeKHourList(props.hourStep);
-    return makeList(24, props.hourStep);
-  }
-  const isPmNow = ampmIdx.value === 1;
-  return make12HourList(isPmNow, props.hourStep);
-});
-
-const minutesList = computed<Item[]>(() => makeList(60, props.minuteStep));
-const secondsList = computed<Item[]>(() => makeList(60, props.secondStep));
-const ampmList = computed<Item[]>(() => [
-  { key: "AM", value: "AM", text: "AM" },
-  { key: "PM", value: "PM", text: "PM" },
-]);
-
-/* ================================
- * Selected values (internal 24h)
- * ================================ */
-const ampmVal = computed(() => (ampmIdx.value === 1 ? "PM" : "AM"));
-
-const hourVal = computed(() => {
-  const hour = Number(hoursList.value[hourIdx.value]?.value ?? 0);
-  if (show12UI.value) {
-    // convert am/pm
-    return ampmVal.value === "PM" ? to24(hour, true) : to24(hour, false);
-  }
-  if (isKFormat.value && hour === 24) return 0; // convert k format
-  return hour;
-});
-
-const minuteVal = computed(() =>
-  Number(minutesList.value[minuteIdx.value]?.value ?? 0)
-);
-const secondVal = computed(() =>
-  Number(secondsList.value[secondIdx.value]?.value ?? 0)
-);
 
 /* ================================
  * Display string
  * ================================ */
- const display = computed(() => {
-  if (!props.modelValue) return "—"; // placeholder
-
-  if (typeof props.modelValue === "string") { // single value
-    return formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value);
+const display = computed(() => {
+  if (!props.modelValue) return "—";
+  const fmt = (c: Canon) => formatTime(props.format!, c.h, c.m, c.s);
+  if (Array.isArray(init.value)) {
+    const [a, b] = init.value;
+    return `${fmt(a)} → ${fmt(b)}`;
   }
-  // tuple of 2 strings
-  let [start, end] = props.modelValue;
-  start = formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value);
-  end = formatTime(props.format!, hourVal.value, minuteVal.value, secondVal.value); // TODO: change this
-  return `${start} → ${end}`;
+  return fmt(init.value);
 });
 /* ================================
  * Handlers
@@ -222,35 +166,23 @@ function confirm() {
   close();
 }
 
-
-let lastBadTime: string | null = null;
-  
-  const isModelValueValid = computed(
-    () => props.modelValue == null || TIME_SHAPE.test(props.modelValue[0])
-  );
-  
-  watch(
-    () => props.modelValue,
-    (val) => {
-      // clear UI error if fixed
-      if (val == null || isModelValueValid.value) {
-        lastErrorCode.value = null;
-        lastBadTime = null;
-        return;
+watch(
+  () => props.range,
+  (newVal) => {
+    if (newVal) { // Range selection
+      if (!Array.isArray(props.modelValue)) {
+        throw new RangeError(`Model value must be an array for range selection: ${props.modelValue}`);
       }
+    } else { // Handle single time selection
+        if (Array.isArray(props.modelValue)) {
+          throw new RangeError(`Model value must be a single string for single time selection: ${props.modelValue}`);
+        }
+    }
+  },
+  { immediate: true }
+)
 
-      // avoid duplicate emits for the same bad input
-      if (val === lastBadTime) return;
-        
-  
-      lastErrorCode.value = "Invalid time";
-      emit("error", {
-        code: "BAD_TIME",
-        message: `Invalid time "${val}". Expected strict "HH:MM:SS".`,
-      });
-    },
-    { immediate: true }
-  );
+
 </script>
 
 <style src="../style.css"></style>
