@@ -6,44 +6,35 @@
       :class="{ 'vtp-input--error': lastErrorCode }"
       type="button"
       :aria-expanded="open"
-      @click="toggleAll"
+      @click="open = !open"
     >
       <span>{{ display }}</span>
       <span class="vtp-input__icon">🕘</span>
     </button>
 
     <!-- Columns -->
-    <!-- <div v-if="open" class="vtp-cols"> -->
-      <!-- <TimeColumn
-        v-model:activeIndex="hourIdx"
-        :items="hoursList"
-        label="Hours"
-      />
-      <TimeColumn
-        v-model:activeIndex="minuteIdx"
-        :items="minutesList"
-        label="Minutes"
-        @select="onMinuteSelect"
-      />
-      <TimeColumn
-        v-if="showSecondsUI"
-        v-model:activeIndex="secondIdx"
-        :items="secondsList"
-        label="Seconds"
-        @select="onSecondSelect"
-      />
-      <TimeColumn
-        v-if="show12UI"
-        v-model:activeIndex="ampmIdx"
-        :items="ampmList"
-        label="AM/PM"
-        @select="onAmpmSelect"
-      /> -->
+    <div>
       <TimeSelection
         v-model:open="open"
-        v-model:initTime="init" 
+        v-model:initTime="firstInit"
         :format="props.format"
+        :hour-step="props.hourStep"
+        :minute-step="props.minuteStep"
+        :second-step="props.secondStep"
       />
+
+      <!-- render second selector only for range mode -->
+      <!-- <TimeSelection
+        v-if="props.range"
+        v-model:open="open"
+        v-model:initTime="secondInit"
+        :format="props.format"
+        :hour-step="props.hourStep"
+        :minute-step="props.minuteStep"
+        :second-step="props.secondStep"
+      /> -->
+    </div>
+      
     </div>
   <!-- </div> -->
 </template>
@@ -52,7 +43,7 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import TimeColumn from "./TimeColumn.vue";
 import TimeSelection from "./TimeSelection.vue";
-import { Item, timePickerProps, type TimePickerEmits } from "./types";
+import { InternalFormat, Item, timePickerProps, type TimePickerEmits } from "./types";
 import {
   is12h,
   hasSeconds,
@@ -68,48 +59,13 @@ const lastErrorCode = ref<string | null>(null);
  * Props & emits
  * ================================ */
 const props = defineProps(timePickerProps);
-
 const emit = defineEmits<TimePickerEmits>();
 
 const open = ref(false);
 
-function toggleAll() {
-  open.value = !open.value
-}
 
 
-/* ================================
- * Open/close & outside click
- * ================================ */
-// const open = ref(false);
-// const root = ref<HTMLElement>();
-// function openMenu() {
-//   open.value = true;
-//   emit("open");
-// }
-// function close() {
-//   open.value = false;
-//   emit("close");
-// }
-// function toggle() {
-//   open.value ? close() : openMenu();
-// }
-
-// function onDocMousedown(e: MouseEvent) {
-//   const t = e.target as Node;
-//   if (!root.value?.contains(t)) confirm();
-// }
-// onMounted(() => document.addEventListener("mousedown", onDocMousedown));
-// onBeforeUnmount(() =>
-//   document.removeEventListener("mousedown", onDocMousedown)
-// );
-
-
-
-type Canon = { h: number; m: number; s: number }  // internal canonical time
-
-
-const init = computed<Canon | [Canon, Canon]>({
+const init = computed<InternalFormat | [InternalFormat, InternalFormat]>({
   get() {
     if (Array.isArray(props.modelValue)) {
       const [a, b] = props.modelValue;
@@ -119,29 +75,61 @@ const init = computed<Canon | [Canon, Canon]>({
     }
   },
   set(val) {
-    const toStr = (c: Canon) => formatTime("HH:mm:ss", c.h, c.m, c.s);
+    const toStr = (c: InternalFormat) => formatTime("HH:mm:ss", c);
     if (Array.isArray(val)) {
       const [a, b] = val;
       emit("update:modelValue", [toStr(a), toStr(b)]);
+      
     } else {
+      
       emit("update:modelValue", toStr(val));
+      // console.log("val", val)
     }
   }
 });
 
+const firstInit = computed<InternalFormat>({
+  get() {
+    if (Array.isArray(init.value)) return init.value[0];
+    return init.value as InternalFormat;
+  },
+  set(v) {
+    if (Array.isArray(init.value)) {
+      init.value = [v, init.value[1]];
+    } else {
+      init.value = v;
+      // console.log("this is init", v, init.value)
+    }
+  }
+});
 
-/* ================================
- * Display string
- * ================================ */
+// const secondInit = computed<InternalFormat>({
+//   get() {
+//     if (Array.isArray(init.value)) return init.value[1];
+//     return init.value as InternalFormat;
+//   },
+//   set(v) {
+//     if (Array.isArray(init.value)) {
+//       init.value = [init.value[0], v];
+//     } else {
+//       // convert single -> range
+//       init.value = [init.value as InternalFormat, v];
+//     }
+//   }
+// });
+
+
+// Display the selected time(s) in the input
 const display = computed(() => {
   if (!props.modelValue) return "—";
-  const fmt = (c: Canon) => formatTime(props.format!, c.h, c.m, c.s);
-  if (Array.isArray(init.value)) {
-    const [a, b] = init.value;
-    return `${fmt(a)} → ${fmt(b)}`;
+  const fmt = (c: InternalFormat) => formatTime(props.format!, c);
+  if (props.range) {
+    // const [a, b] = init.value;
+    return `${fmt(firstInit.value)} → ${fmt(secondInit.value)}`;
   }
-  return fmt(init.value);
+  return fmt(firstInit.value);
 });
+
 
 
 watch(
@@ -159,6 +147,8 @@ watch(
   },
   { immediate: true }
 )
+
+watch(firstInit, (val) => (console.log(val)))
 
 
 </script>

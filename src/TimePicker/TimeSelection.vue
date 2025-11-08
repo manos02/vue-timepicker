@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import TimeColumn from "./TimeColumn.vue";
-import { Item, TimePickerEmits } from "./types";
+import { InternalFormat, Item, TimePickerEmits } from "./types";
 import {
   hasK,
   hasSeconds,
@@ -43,34 +43,25 @@ import {
   parseFromModel,
   to24,
 } from "../helpers";
-import { on } from "events";
 
 const show12UI = computed(() => is12h(props.format));
 const showSecondsUI = computed(() => hasSeconds(props.format));
 const isKFormat = computed(() => hasK(props.format));
 
+const props = defineProps<{
+  open: boolean;
+  initTime: InternalFormat;
 
-const props = withDefaults(
-  defineProps<{
-    open: boolean;
-    initTime: { h: number; m: number; s: number };
+  format: string;
 
-    format: string;
-
-    hourStep?: number;
-    minuteStep?: number;
-    secondStep?: number;
-  }>(),
-  {
-    hourStep: 1,
-    minuteStep: 1,
-    secondStep: 1,
-  }
-);
+  hourStep?: number;
+  minuteStep?: number;
+  secondStep?: number;
+}>();
 
 // v-model updates
 const emit = defineEmits<{
-  (e: "update:initTime", v: { h: number; m: number; s: number }): void;
+  (e: "update:initTime", v: InternalFormat): void;
   (e: "open"): void;
   (e: "close"): void;
   (e: "update:open", v: boolean): void;
@@ -83,9 +74,8 @@ const openLocal = computed({
     if (v === prev) return;
     emit("update:open", v);
     v ? emit("open") : emit("close");
-  }
+  },
 });
-
 
 /* ================================
  * Open/close & outside click
@@ -101,7 +91,9 @@ function onDocMousedown(e: MouseEvent) {
   }
 }
 onMounted(() => document.addEventListener("mousedown", onDocMousedown));
-onBeforeUnmount(() => document.removeEventListener("mousedown", onDocMousedown));
+onBeforeUnmount(() =>
+  document.removeEventListener("mousedown", onDocMousedown)
+);
 
 /**  ESC to close */
 function onKeydown(e: KeyboardEvent) {
@@ -110,9 +102,9 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => document.addEventListener("keydown", onKeydown));
 onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
 
-const hourIdx = ref(Math.floor(props.initTime.h / props.hourStep) || 0);
-const minuteIdx = ref(Math.floor(props.initTime.m / props.minuteStep) || 0);
-const secondIdx = ref(Math.floor(props.initTime.s / props.secondStep) || 0);
+const hourIdx = ref(Math.floor(props.initTime.h / props.hourStep!) || 0);
+const minuteIdx = ref(Math.floor(props.initTime.m / props.minuteStep!) || 0);
+const secondIdx = ref(Math.floor(props.initTime.s / props.secondStep!) || 0);
 function makeList(max: number, step: number): Item[] {
   const arr: Item[] = [];
   for (let i = 0; i < max; i += Math.max(1, step)) {
@@ -197,7 +189,6 @@ const secondVal = computed(() =>
 //   }
 // }
 
-
 /* ================================
  * Handlers
  * ================================ */
@@ -216,8 +207,15 @@ function onAmpmSelect(_: string) {
 function confirm() {
   openLocal.value = false;
 }
-watch([hourVal, minuteVal, secondVal], ([h, m, s]) => {
-  const obj = { h, m, s }
-  emit("update:initTime", obj)
-}, { immediate: true })
+
+
+watch(
+  [hourVal, minuteVal, secondVal],
+  ([h, m, s]) => {
+    const obj = { h, m, s };
+    // console.log("ob", obj)
+    emit("update:initTime", obj);
+  },
+  { immediate: true }
+);
 </script>

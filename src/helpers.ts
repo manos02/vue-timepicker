@@ -1,5 +1,7 @@
 // helpers.ts
 
+import { InternalFormat } from "./TimePicker/types";
+
 /** Check if format uses 12-hour clock (h or hh) */
 export function is12h(fmt: string): boolean {
   return /(a|A|p|P)/.test(fmt);
@@ -55,7 +57,12 @@ export function hasSeconds(fmt: string) {
   return /(s|ss)/.test(fmt);
 }
 
-export function formatTime(fmt: string, h: number, m: number, s: number) {
+
+
+export function formatTime(fmt: string, time: InternalFormat) {
+  let { h, m, s}  = time;
+
+
   const is12hFormat = is12h(fmt);
 
   const apm = h >= 12 ? "PM" : "AM";

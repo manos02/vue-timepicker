@@ -18,12 +18,15 @@ type WithSecondsAmPM = `${WithSeconds}${AmPmToken}`;
 // Final type: all combinations
 export type TimeFormat = Base | WithSeconds | WithAmPM | WithSecondsAmPM;
 
+export type InternalFormat = { h: number; m: number; s: number }  // internal time
+
+
 export const FORMAT_SHAPE = /^(HH|H|hh|h|kk|k):(mm|m)(?::(ss|s))?(?:\s*(A|a|P|p))?$/;
 export const TIME_SHAPE = /^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/;
 
 export const timePickerProps = {
   modelValue: {
-    type: String as PropType<string | [string, string] | null>,
+    type: [String, Array] as PropType<string | [string, string] | null>,
     default: null,
     validator: (v: any) => {
       let ok;
