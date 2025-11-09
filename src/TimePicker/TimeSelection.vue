@@ -139,14 +139,14 @@ const ampmIdx = ref(isPm(props.format) ? 1 : 0);
 
 const hoursList = computed<Item[]>(() => {
   if (!show12UI.value) {
-    if (isKFormat.value) return makeKHourList(props.hourStep);
-    return makeList(24, props.hourStep);
+    if (isKFormat.value) return makeKHourList(props.hourStep!);
+    return makeList(24, props.hourStep!);
   }
   const isPmNow = ampmIdx.value === 1;
-  return make12HourList(isPmNow, props.hourStep);
+  return make12HourList(isPmNow, props.hourStep!);
 });
-const minutesList = computed<Item[]>(() => makeList(60, props.minuteStep));
-const secondsList = computed<Item[]>(() => makeList(60, props.secondStep));
+const minutesList = computed<Item[]>(() => makeList(60, props.minuteStep!));
+const secondsList = computed<Item[]>(() => makeList(60, props.secondStep!));
 const ampmList = computed<Item[]>(() => [
   { key: "AM", value: "AM", text: "AM" },
   { key: "PM", value: "PM", text: "PM" },
@@ -213,7 +213,6 @@ watch(
   [hourVal, minuteVal, secondVal],
   ([h, m, s]) => {
     const obj = { h, m, s };
-    // console.log("ob", obj)
     emit("update:initTime", obj);
   },
   { immediate: true }

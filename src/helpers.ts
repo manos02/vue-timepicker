@@ -19,29 +19,31 @@ export function hasK(fmt: string): boolean {
 export function parseFromModel(str: string | null | undefined, fmt: string): { h: number; m: number; s: number } {
   if (!str) return { h: 0, m: 0, s: 0 };
 
-
+  
   const nums = str.match(/\d+/g) || []; // extract numbers
-
+  
   let h = nums[0] !== undefined ? +nums[0] : 0;
   const m = +nums[1] || 0;
   const s = +nums[2] || 0;
-
-  // k/kk → (24 == midnight)
-  if (hasK(fmt)) {
-    if (h === 24) h = 0;
-    // Check if it is 12h
-  } else if (is12h(fmt)) {
-    if (isPm(fmt)) {
-      h = (h % 12) + 12;
-    } else {
-      h = h % 12;
-    }
-  } else {
-    // default → 24h
-    h = h % 24;
-  }
-
   return { h, m, s };
+  
+  // console.log(h, m, s,  fmt)
+  // // k/kk → (24 == midnight)
+  // if (hasK(fmt)) {
+  //   if (h === 24) h = 0;
+  //   // Check if it is 12h
+  // } else if (is12h(fmt)) {
+  //   if (isPm(fmt)) {
+  //     h = (h % 12) + 12;
+  //     console.log("yes")
+  //   } else {
+  //     h = h % 12;
+  //   }
+  // } else {
+  //   // default → 24h
+  //   h = h % 24;
+  // }
+  // console.log("h m s", h, m, s)
 }
 
 export function to12(h24: number) {

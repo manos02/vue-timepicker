@@ -27,13 +27,13 @@ export const TIME_SHAPE = /^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/;
 export const timePickerProps = {
   modelValue: {
     type: [String, Array] as PropType<string | [string, string] | null>,
-    default: null,
+    default: undefined,
     validator: (v: any) => {
       let ok;
       if (Array.isArray(v)) {
         ok = v.length === 2 && v.every((item) => TIME_SHAPE.test(item));
       } else {
-        ok = v == null || TIME_SHAPE.test(v);
+        ok = v == undefined || TIME_SHAPE.test(v);
       }
       if (!ok && import.meta.env.DEV) {
         console.error(
