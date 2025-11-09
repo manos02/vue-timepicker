@@ -69,10 +69,12 @@ const open = ref(false);
 
 const init = computed<InternalFormat | [InternalFormat, InternalFormat]>({
   get() {
-    return parseFromModel(
-      Array.isArray(props.modelValue) ? props.modelValue[0] : props.modelValue,
-      props.format
-    );
+    if (Array.isArray(props.modelValue)) {
+      const [a, b] = props.modelValue;
+      return [parseFromModel(a, props.format), parseFromModel(b, props.format)];
+    } else {
+      return parseFromModel(props.modelValue, props.format);
+    }
   },
   set(v) {
     if (Array.isArray(v)) {
@@ -85,8 +87,6 @@ const init = computed<InternalFormat | [InternalFormat, InternalFormat]>({
     }
   },
 });
-
-// const initTemp =
 
 const firstInit = computed<InternalFormat>({
   get() {
@@ -144,7 +144,6 @@ watch(
   },
   { immediate: true }
 );
-
 </script>
 
 <style src="../style.css"></style>
