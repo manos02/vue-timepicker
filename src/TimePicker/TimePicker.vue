@@ -1,21 +1,36 @@
 <template>
-  <div class="vtp">
+  <div class="timepicker">
     <!-- Input / trigger -->
-    <button
-      class="vtp-input"
-      :class="{ 'vtp-input--error': lastErrorCode }"
-      type="button"
-      :aria-expanded="open"
-      @click="open = !open"
-    >
-      <span>{{ display }}</span>
-      <span class="vtp-input__icon">🕘</span>
-    </button>
+
+    <template v-if="!props.range">
+      <button
+        type="button"
+        class="timepicker-input"
+        @click.stop="openFirst = true"
+      >
+        {{ formatTime(props.format, firstInit) }}
+      </button>
+    </template>
+
+    <template v-else>
+      <div
+        class="timepicker-input"
+        :class="{ 'timepicker-input--error': lastErrorCode }"
+      >
+        <button type="button" class="btn-flat" @click.stop="openFirst = true">
+          {{ formatTime(props.format, firstInit) }}
+        </button>
+        <span>-</span>
+        <button type="button" class="btn-flat" @click.stop="openSecond = true">
+          {{ formatTime(props.format, secondInit) }}
+        </button>
+      </div>
+    </template>
 
     <!-- Columns -->
     <div>
       <TimeSelection
-        v-model:open="open"
+        v-model:open="openFirst"
         v-model:initTime="firstInit"
         :format="props.format"
         :hour-step="props.hourStep"
@@ -24,15 +39,15 @@
       />
 
       <!-- render second selector only for range mode -->
-      <!-- <TimeSelection
+      <TimeSelection
         v-if="props.range"
-        v-model:open="open"
+        v-model:open="openSecond"
         v-model:initTime="secondInit"
         :format="props.format"
         :hour-step="props.hourStep"
         :minute-step="props.minuteStep"
         :second-step="props.secondStep"
-      /> -->
+      />
     </div>
   </div>
   <!-- </div> -->
@@ -65,7 +80,8 @@ const lastErrorCode = ref<string | null>(null);
 const props = defineProps(timePickerProps);
 const emit = defineEmits<TimePickerEmits>();
 
-const open = ref(false);
+const openFirst = ref(false);
+const openSecond = ref(false);
 
 const init = computed<InternalFormat | [InternalFormat, InternalFormat]>({
   get() {
@@ -146,4 +162,5 @@ watch(
 );
 </script>
 
-<style src="../style.css"></style>
+<!-- import updated, clearer stylesheet -->
+<style src="../styles/timepicker.css"></style>
