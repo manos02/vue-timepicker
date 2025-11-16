@@ -1,29 +1,51 @@
 <template>
-  <div class="timepicker">
+  <div class="timepicker-shell">
     <!-- Input / trigger -->
 
     <template v-if="!props.range">
-      <button
-        type="button"
-        class="timepicker-input"
-        @click.stop="openFirst = true"
+      <div
+        class="timepicker-shell__input"
+        :class="{ 'timepicker-shell__input--error': lastErrorCode }"
       >
-        {{ formatTime(props.format, firstInit) }}
-      </button>
+        <input
+          type="text"
+          class="timepicker-field"
+          v-model="firstInputValue"
+          :placeholder="resolvedFormat"
+          :style="{ width: fieldWidth }"
+          @focus="openFirst = true"
+          @keydown.enter.prevent="commitTypedTime('first')"
+          @blur="commitTypedTime('first')"
+        />
+      </div>
     </template>
 
     <template v-else>
       <div
-        class="timepicker-input"
-        :class="{ 'timepicker-input--error': lastErrorCode }"
+        class="timepicker-shell__input"
+        :class="{ 'timepicker-shell__input--error': lastErrorCode }"
       >
-        <button type="button" class="btn-flat" @click.stop="openFirst = true">
-          {{ formatTime(props.format, firstInit) }}
-        </button>
+        <input
+          type="text"
+          class="timepicker-field"
+          v-model="firstInputValue"
+          :placeholder="resolvedFormat"
+          :style="{ width: fieldWidth }"
+          @focus="openFirst = true"
+          @keydown.enter.prevent="commitTypedTime('first')"
+          @blur="commitTypedTime('first')"
+        />
         <span>-</span>
-        <button type="button" class="btn-flat" @click.stop="openSecond = true">
-          {{ formatTime(props.format, secondInit) }}
-        </button>
+        <input
+          type="text"
+          class="timepicker-field"
+          v-model="secondInputValue"
+          :placeholder="resolvedFormat"
+          :style="{ width: fieldWidth }"
+          @focus="openSecond = true"
+          @keydown.enter.prevent="commitTypedTime('second')"
+          @blur="commitTypedTime('second')"
+        />
       </div>
     </template>
 
@@ -160,7 +182,61 @@ watch(
   },
   { immediate: true }
 );
+
+const resolvedFormat = computed(() => props.format ?? "HH:mm:ss");
+const fieldWidth = computed(() => {
+  const length = Math.min(10, Math.max(4, resolvedFormat.value.length));
+  return `${length}ch`;
+});
+const firstInputValue = ref("");
+const secondInputValue = ref("");
+
+watch(
+  () => [firstInit.value, resolvedFormat.value],
+  ([val]) => {
+    firstInputValue.value = formatTime(resolvedFormat.value, val);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [secondInit.value, resolvedFormat.value, props.range],
+  ([val, , isRange]) => {
+    if (!isRange) {
+      secondInputValue.value = "";
+      return;
+    }
+    secondInputValue.value = formatTime(resolvedFormat.value, val);
+  },
+  { immediate: true }
+);
+
+const parseTypedValue = (value: string): InternalFormat | null => {
+  if (!value.trim()) return null;
+  try {
+    return parseFromModel(value.trim(), resolvedFormat.value);
+  } catch {
+    return null;
+  }
+};
+
+const commitTypedTime = (target: "first" | "second") => {
+  const buffer = target === "first" ? firstInputValue : secondInputValue;
+  const parsed = parseTypedValue(buffer.value);
+  if (!parsed) {
+    lastErrorCode.value = "invalid-time";
+    return;
+  }
+  lastErrorCode.value = null;
+
+  if (target === "first") {
+    firstInit.value = parsed;
+    buffer.value = formatTime(resolvedFormat.value, firstInit.value);
+  } else if (props.range) {
+    secondInit.value = parsed;
+    buffer.value = formatTime(resolvedFormat.value, secondInit.value);
+  }
+};
 </script>
 
-<!-- import updated, clearer stylesheet -->
 <style src="../styles/timepicker.css"></style>

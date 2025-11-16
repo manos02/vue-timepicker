@@ -1,12 +1,16 @@
-/* Container for the time picker */
-.timepicker {
+/* ===============================
+ * Time picker shell
+ * =============================== */
+.timepicker-shell {
   display: inline-block;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, "Noto Sans", "Liberation Sans", sans-serif;
 }
 
-/* Input / trigger appearance */
-.timepicker-input {
+/* ===============================
+ * Input wrapper
+ * =============================== */
+.timepicker-shell__input {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -17,25 +21,30 @@
   color: #111;
 }
 
-/* Error state for input */
-.timepicker-input--error {
+.timepicker-shell__input--error {
   border-color: #e74c3c;
   box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.06);
 }
 
-/* Flat button style used inside the input */
-.btn-flat {
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-}
-
-/* Small utility: separate dash */
-.timepicker-input span {
+.timepicker-shell__input span {
   opacity: 0.7;
   margin: 0 0.25rem;
+}
+
+/* ===============================
+ * Text field
+ * =============================== */
+.timepicker-field {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+}
+
+.timepicker-field:focus {
+  outline: none;
 }
